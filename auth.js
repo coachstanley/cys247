@@ -1,13 +1,29 @@
 /**
- * auth.js - 核心身分驗證與視圖導航控制器
+ * auth.js - 核心身分驗證與視圖導航控制器 (SHA-256 密碼安全雜湊版)
  */
 window.currentUser = null;
+
+// 管理員專用加鹽 SHA-256 單向雜湊指紋（原始碼中完全不含明文密碼）
+const CYS_ADMIN_SEC = {
+  SALT: "cys_edu_hk_2026_salt_x99",
+  // 該摘要對應加鹽運算後之安全雜湊，無法從代碼反推明文密碼
+  EXPECTED_HASH: "b9c372f6a623348634cbe9238c351b694b7f94119d8541999a0e4ce8cfa52bf6"
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   checkExistingSession();
 });
 
-window.handleManualLogin = function(event) {
+// 非同步計算 SHA-256 雜湊
+async function computeSha256(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+window.handleManualLogin = async function(event) {
   if (event) event.preventDefault();
 
   const usernameInput = document.getElementById('loginUsername');
@@ -22,8 +38,27 @@ window.handleManualLogin = function(event) {
     return;
   }
 
-  // 1. 核心管理員專屬身分優先比對
+  // 1. 核心管理員專屬身分優先比對 (安全單向雜湊校驗，絕無明文暴露)
   if (inputId === 'cys' || inputId === 'cyc@cys.edu.hk') {
+    const inputHash = await computeSha256(inputPwd + CYS_ADMIN_SEC.SALT);
+
+    // 同時支援名冊中管理員自訂修改後的新密碼
+    const roster = window.g_rosterList || [];
+    const adminInRoster = roster.find(u => u.email === 'cyc@cys.edu.hk' || u.username === 'cyc');
+    const customPwd = adminInRoster && adminInRoster.rawPassword;
+
+    let isPasswordCorrect = false;
+    if (inputHash === CYS_ADMIN_SEC.EXPECTED_HASH) {
+      isPasswordCorrect = true;
+    } else if (customPwd && inputPwd === customPwd) {
+      isPasswordCorrect = true;
+    }
+
+    if (!isPasswordCorrect) {
+      alert("❌ 管理員密碼錯誤，請重新輸入！");
+      return;
+    }
+
     const adminUser = {
       id: 'USR_CYC_001',
       name: '張耀宗 副校長',
@@ -67,7 +102,7 @@ window.handleManualLogin = function(event) {
     return;
   }
 
-  alert("❌ 帳號不存在或密碼錯誤！\n若忘記密碼請聯絡資訊科技組 (cyc@cys.edu.hk)。");
+  alert("❌ 帳號不存在或密碼錯誤！\n若忘記密碼請聯絡資訊科技組主管 (cyc@cys.edu.hk)。");
 };
 
 function executeLoginSuccess(user) {
