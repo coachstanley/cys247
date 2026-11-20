@@ -1,7 +1,10 @@
 /**
- * materials.js - Google Drive 動態教材讀取與宏觀自學統計
+ * materials.js - Google Drive 動態教材讀取與宏觀自學統計 (含層級防錯過濾)
  */
 window.activeAcademicYear = localStorage.getItem(CYS_CONFIG.STORAGE_KEYS.CURRENT_YEAR) || CYS_CONFIG.DEFAULT_ACADEMIC_YEAR;
+
+// 年級識別標籤 (用於前端防禦，避免下拉選單誤載入年級代碼)
+const CYS_GRADE_KEYS = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', '中一', '中二', '中三', '中四', '中五', '中六'];
 
 document.addEventListener('DOMContentLoaded', () => {
   initSubjectStats();
@@ -33,11 +36,19 @@ window.loadSubjectsFromDrive = function() {
   })
   .then(res => res.json())
   .then(data => {
-    if (data && data.status === 'success' && Array.isArray(data.subjects) && data.subjects.length > 0) {
-      renderSubjectOptions(data.subjects);
+    // 嚴格過濾：徹底排除因後端目錄穿透錯位而回傳的「年級代碼 (如 S1~S6)」
+    const rawList = (data && data.status === 'success' && Array.isArray(data.subjects)) ? data.subjects : [];
+    const validSubjects = rawList.filter(sub => {
+      const code = (sub.code || '').trim().toUpperCase();
+      const name = (sub.name || '').trim().toUpperCase();
+      return !CYS_GRADE_KEYS.includes(code) && !CYS_GRADE_KEYS.includes(name);
+    });
+
+    if (validSubjects.length > 0) {
+      renderSubjectOptions(validSubjects);
       if (syncBadge) {
         syncBadge.className = "text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium border border-emerald-200";
-        syncBadge.innerText = `⚡ Drive 同步成功 (${data.subjects.length} 科)`;
+        syncBadge.innerText = `⚡ Drive 同步成功 (${validSubjects.length} 科)`;
       }
     } else {
       renderDefaultSubjectOptions(currentGrade);
@@ -121,8 +132,17 @@ window.loadTopicsFromDrive = function() {
   })
   .then(res => res.json())
   .then(data => {
-    if (data && data.status === 'success' && Array.isArray(data.topics) && data.topics.length > 0) {
-      renderTopicCheckboxes(data.topics);
+    const rawTopics = (data && data.status === 'success' && Array.isArray(data.topics)) ? data.topics : [];
+
+    // 嚴格過濾：徹底排除因錯位回傳的「學科代碼 (如 CHI, ICT)」或「班別群組 (如 ACD, BE)」
+    const KNOWN_CODES = CYS_CONFIG.FULL_SUBJECTS.map(s => s.code.toUpperCase());
+    const validTopics = rawTopics.filter(t => {
+      const clean = String(t).trim().toUpperCase();
+      return !KNOWN_CODES.includes(clean) && !CYS_GRADE_KEYS.includes(clean) && clean !== 'ACD' && clean !== 'BE';
+    });
+
+    if (validTopics.length > 0) {
+      renderTopicCheckboxes(validTopics);
     } else {
       renderDefaultTopics(subject);
     }
