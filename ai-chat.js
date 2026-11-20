@@ -71,7 +71,7 @@ function processSelectedImage(file) {
 
       window.currentAttachedImage = {
         dataUrl: compressedDataUrl,
-        base64: base64String, // 純字串
+        base64: base64String,
         mimeType: 'image/jpeg',
         sizeKb: approxSizeKb
       };
@@ -257,7 +257,7 @@ function appendAiAnswerBubble(content, source) {
 
   const tagHtml = source === 'materials'
     ? '<span class="bg-red-50 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">📚 校本教材對照解答</span>'
-    : '<span class="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">🌐 Gemini 3.8 Flash 啟發式解答</span>';
+    : '<span class="bg-blue-50 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">🌐 Gemini Flash 啟發式解答</span>';
 
   row.innerHTML = `
     <div class="w-9 h-9 rounded-full bg-red-900 text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">🤖</div>
@@ -329,6 +329,6 @@ function updateQueryModeUI() {
   } else {
     btnMaterials.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700";
     btnDirect.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm bg-blue-600 text-white";
-    if (descLabel) descLabel.innerText = "跳過教材檢索，由 Gemini 3.8 Flash 直接解答";
+    if (descLabel) descLabel.innerText = "跳過教材檢索，由 Gemini 核心模型直接解答";
   }
 }
