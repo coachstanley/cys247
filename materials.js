@@ -1,5 +1,5 @@
 /**
- * materials.js - Google Drive 動態教材讀取與宏觀自學統計 (含層級防錯過濾)
+ * materials.js - Google Drive 動態教材讀取 (真實無假資料版)
  */
 window.activeAcademicYear = localStorage.getItem(CYS_CONFIG.STORAGE_KEYS.CURRENT_YEAR) || CYS_CONFIG.DEFAULT_ACADEMIC_YEAR;
 
@@ -117,7 +117,7 @@ window.loadTopicsFromDrive = function() {
   const container = document.getElementById('topicCheckboxContainer');
   if (!container) return;
 
-  container.innerHTML = '<div class="p-2 text-gray-400 italic text-center">⏳ 正在自雲端讀取課題章節...</div>';
+  container.innerHTML = '<div class="p-2 text-gray-400 italic text-center">⏳ 正在自雲端教案庫檢索課題章節...</div>';
 
   fetch(CYS_CONFIG.GAS_API_URL, {
     method: 'POST',
@@ -144,10 +144,11 @@ window.loadTopicsFromDrive = function() {
     if (validTopics.length > 0) {
       renderTopicCheckboxes(validTopics);
     } else {
-      renderDefaultTopics(subject);
+      // 關鍵要求：若 Google Drive 內沒有該課題章節，真實呈現無教材提示，絕不展示假性模擬課題！
+      renderNoTopicsFoundMessage(subject);
     }
   })
-  .catch(() => renderDefaultTopics(subject));
+  .catch(() => renderNoTopicsFoundMessage(subject));
 };
 
 function renderTopicCheckboxes(topics) {
@@ -156,7 +157,7 @@ function renderTopicCheckboxes(topics) {
   container.innerHTML = '';
   topics.forEach((topic, idx) => {
     const label = document.createElement('label');
-    label.className = "flex items-center space-x-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer";
+    label.className = "flex items-center space-x-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer transition";
     label.innerHTML = `
       <input type="checkbox" name="topic" value="${escapeHtml(topic)}" ${idx === 0 ? 'checked' : ''} class="rounded text-red-900 focus:ring-red-800">
       <span class="text-gray-700">${escapeHtml(topic)}</span>
@@ -165,13 +166,16 @@ function renderTopicCheckboxes(topics) {
   });
 }
 
-function renderDefaultTopics(subject) {
-  const defaults = [
-    `單元一：${subject} 核心基礎原理與核心概念`,
-    `單元二：${subject} 香港中學文憑試 (DSE) 歷屆實戰題目探究`,
-    `單元三：日常生活情境分析與跨學科 STEAM 應用`
-  ];
-  renderTopicCheckboxes(defaults);
+// 真實呈現：無教材時展示乾淨簡潔的提示，不捏造虛假單元
+function renderNoTopicsFoundMessage(subject) {
+  const container = document.getElementById('topicCheckboxContainer');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center space-y-1">
+      <p class="text-xs font-semibold text-gray-600">📭 目前雲端教案庫尚未上載此學科章節</p>
+      <p class="text-[11px] text-gray-400">你仍可直接發問，AI 助教將以 ${escapeHtml(subject)} 全域學科知識解答。</p>
+    </div>
+  `;
 }
 
 // 宏觀自學統計
