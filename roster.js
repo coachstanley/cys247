@@ -157,7 +157,7 @@ window.openEditUserModal = function(userId) {
   const isProtected = user.isProtected || user.email === 'cyc@cys.edu.hk';
   document.getElementById('editUserEmail').disabled = isProtected;
   document.getElementById('editUserRole').disabled = isProtected;
-  
+
   if (isProtected) {
     document.getElementById('editUserPassword').placeholder = "保留原安全密碼 (留空不修改)";
   } else {
