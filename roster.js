@@ -43,9 +43,7 @@ function saveRosterToStorage() {
   }
 }
 
-// ==========================================
-// 1. 批次選取與操作
-// ==========================================
+// 批次選取與操作
 function updateBatchToolbarUI() {
   const badge = document.getElementById('batchSelectedCountBadge');
   const chkAll = document.getElementById('chkSelectAllRoster');
@@ -142,9 +140,7 @@ window.handleBatchDeleteUsers = function() {
   alert(`✅ 已成功批次刪除 ${deletedCount} 個帳號！`);
 };
 
-// ==========================================
-// 2. 個別帳號修改 (Modal)
-// ==========================================
+// 個別帳號修改 (Modal)
 window.openEditUserModal = function(userId) {
   const user = window.g_rosterList.find(u => u.id === userId);
   if (!user) return;
@@ -196,9 +192,7 @@ window.saveUserEdit = function(event) {
   alert(`✅ 帳號【${name}】資料已成功更新！`);
 };
 
-// ==========================================
-// 3. 表格渲染 (含勾選、編輯與刪除)
-// ==========================================
+// 表格渲染 (含勾選、編輯與刪除)
 window.renderRosterTable = function() {
   const tbody = document.getElementById('rosterTableBody');
   if (!tbody) return;
@@ -288,9 +282,7 @@ window.deleteRosterUser = function(userId) {
   }
 };
 
-// ==========================================
-// 4. 智慧繁體中文 CSV 匯入與匯出
-// ==========================================
+// 智慧繁體中文 CSV 匯入與匯出
 window.handleCsvImport = function(event) {
   const file = event.target.files[0];
   if (!file) return;
