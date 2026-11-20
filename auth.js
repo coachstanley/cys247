@@ -1,20 +1,17 @@
 /**
- * auth.js - 核心身分驗證與視圖導航控制器 (SHA-256 密碼安全雜湊版)
+ * auth.js - 核心身分驗證與視圖導航控制器 (SHA-256 密碼安全雜湊修復版)
  */
 window.currentUser = null;
 
-// 管理員專用加鹽 SHA-256 單向雜湊指紋（原始碼中完全不含明文密碼）
-const CYS_ADMIN_SEC = {
-  SALT: "cys_edu_hk_2026_salt_x99",
-  // 該摘要對應加鹽運算後之安全雜湊，無法從代碼反推明文密碼
-  EXPECTED_HASH: "b9c372f6a623348634cbe9238c351b694b7f94119d8541999a0e4ce8cfa52bf6"
-};
+// 管理員專用不可逆 SHA-256 單向雜湊指紋（原始碼中完全不含明文密碼，無法反推）
+// 對應管理員專用密碼之標準 SHA-256 摘要值
+const CYS_ADMIN_EXPECTED_HASH = "7c4f4a382c7a6e12e3e53ba2a466c4bfd9d435ee91c981881682855160ef94fe";
 
 document.addEventListener('DOMContentLoaded', () => {
   checkExistingSession();
 });
 
-// 非同步計算 SHA-256 雜湊
+// 非同步計算標準 SHA-256 雜湊
 async function computeSha256(text) {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
@@ -24,39 +21,48 @@ async function computeSha256(text) {
 }
 
 window.handleManualLogin = async function(event) {
-  if (event) event.preventDefault();
+  // 強制第一時間阻斷表單預設重新整理行為
+  if (event) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  }
 
   const usernameInput = document.getElementById('loginUsername');
   const passwordInput = document.getElementById('loginPassword');
-  if (!usernameInput || !passwordInput) return;
+  if (!usernameInput || !passwordInput) return false;
 
   const inputId = usernameInput.value.trim().toLowerCase();
   const inputPwd = passwordInput.value.trim();
 
   if (!inputId || !inputPwd) {
     alert("請輸入登入帳號與密碼！");
-    return;
+    return false;
   }
 
   // 1. 核心管理員專屬身分優先比對 (安全單向雜湊校驗，絕無明文暴露)
   if (inputId === 'cys' || inputId === 'cyc@cys.edu.hk') {
-    const inputHash = await computeSha256(inputPwd + CYS_ADMIN_SEC.SALT);
+    let isPasswordCorrect = false;
 
-    // 同時支援名冊中管理員自訂修改後的新密碼
+    try {
+      const inputHash = await computeSha256(inputPwd);
+      if (inputHash === CYS_ADMIN_EXPECTED_HASH) {
+        isPasswordCorrect = true;
+      }
+    } catch (e) {
+      console.warn("Crypto API 運算異常，改用相容比對", e);
+    }
+
+    // 同時支援名冊中管理員後續自訂修改之密碼
     const roster = window.g_rosterList || [];
     const adminInRoster = roster.find(u => u.email === 'cyc@cys.edu.hk' || u.username === 'cyc');
     const customPwd = adminInRoster && adminInRoster.rawPassword;
-
-    let isPasswordCorrect = false;
-    if (inputHash === CYS_ADMIN_SEC.EXPECTED_HASH) {
-      isPasswordCorrect = true;
-    } else if (customPwd && inputPwd === customPwd) {
+    if (customPwd && inputPwd === customPwd) {
       isPasswordCorrect = true;
     }
 
     if (!isPasswordCorrect) {
       alert("❌ 管理員密碼錯誤，請重新輸入！");
-      return;
+      return false;
     }
 
     const adminUser = {
@@ -68,7 +74,7 @@ window.handleManualLogin = async function(event) {
       roleLabel: '教師及管理員'
     };
     executeLoginSuccess(adminUser);
-    return;
+    return false;
   }
 
   // 2. 名冊清單精確比對
@@ -82,10 +88,10 @@ window.handleManualLogin = async function(event) {
   if (matchedUser) {
     if (matchedUser.rawPassword && inputPwd === matchedUser.rawPassword) {
       executeLoginSuccess(matchedUser);
-      return;
+      return false;
     } else {
       alert("❌ 登入密碼不正確，請重新輸入！");
-      return;
+      return false;
     }
   }
 
@@ -99,10 +105,11 @@ window.handleManualLogin = async function(event) {
       role: 'student',
       roleLabel: '學生'
     });
-    return;
+    return false;
   }
 
   alert("❌ 帳號不存在或密碼錯誤！\n若忘記密碼請聯絡資訊科技組主管 (cyc@cys.edu.hk)。");
+  return false;
 };
 
 function executeLoginSuccess(user) {
