@@ -17,7 +17,7 @@ function initRosterData() {
     window.g_rosterList = [];
   }
 
-  // 核心管理員防誤刪自愈保護
+  // 核心管理員防誤刪自愈保護 (密碼強制遮蔽)
   const hasCyc = window.g_rosterList.some(u => u.email === 'cyc@cys.edu.hk');
   if (!hasCyc) {
     window.g_rosterList.unshift({
@@ -28,7 +28,7 @@ function initRosterData() {
       role: 'teacher_admin',
       roleLabel: '教師及管理員',
       password: '••••••••',
-      rawPassword: '',
+      rawPassword: '', // 保持隱蔽，由 auth.js 核心雜湊校驗
       isProtected: true
     });
   }
@@ -152,11 +152,17 @@ window.openEditUserModal = function(userId) {
   document.getElementById('editUserName').value = user.name || '';
   document.getElementById('editUserEmail').value = user.email || user.username || '';
   document.getElementById('editUserRole').value = user.role === 'admin' ? 'admin' : (user.role === 'teacher' ? 'teacher' : 'student');
-  document.getElementById('editUserPassword').value = user.rawPassword || 'cys123456';
+  document.getElementById('editUserPassword').value = user.isProtected ? '' : (user.rawPassword || 'cys123456');
 
   const isProtected = user.isProtected || user.email === 'cyc@cys.edu.hk';
   document.getElementById('editUserEmail').disabled = isProtected;
   document.getElementById('editUserRole').disabled = isProtected;
+  
+  if (isProtected) {
+    document.getElementById('editUserPassword').placeholder = "保留原安全密碼 (留空不修改)";
+  } else {
+    document.getElementById('editUserPassword').placeholder = "請輸入密碼";
+  }
 
   modal.classList.remove('hidden');
 };
@@ -183,8 +189,11 @@ window.saveUserEdit = function(event) {
     user.email = email;
     user.role = role;
     user.roleLabel = role === 'teacher' ? '教師' : (role === 'admin' ? '管理員' : '學生');
+    if (pwd) user.rawPassword = pwd;
+  } else if (user.isProtected && pwd) {
+    // 管理員自訂修改密碼
+    user.rawPassword = pwd;
   }
-  if (pwd) user.rawPassword = pwd;
 
   saveRosterToStorage();
   closeEditUserModal();
@@ -233,7 +242,11 @@ window.renderRosterTable = function() {
       <td class="px-4 py-3">
         <div class="flex items-center space-x-2">
           <span id="pwdDisplay_${idx}" class="font-mono text-gray-500">••••••••</span>
-          <button type="button" onclick="toggleRosterPassword(${idx})" class="text-gray-400 hover:text-gray-700 text-xs" title="顯示/隱藏密碼">👁️</button>
+          ${
+            isProtected
+              ? '<span class="text-[11px] text-gray-400 font-mono italic">受保護</span>'
+              : `<button type="button" onclick="toggleRosterPassword(${idx})" class="text-gray-400 hover:text-gray-700 text-xs" title="顯示/隱藏密碼">👁️</button>`
+          }
         </div>
       </td>
       <td class="px-4 py-3 text-right space-x-1.5">
@@ -254,7 +267,10 @@ window.renderRosterTable = function() {
 window.toggleRosterPassword = function(idx) {
   const el = document.getElementById(`pwdDisplay_${idx}`);
   if (!el || !window.g_rosterList[idx]) return;
-  const raw = window.g_rosterList[idx].rawPassword || 'cys123456';
+  const user = window.g_rosterList[idx];
+  if (user.isProtected || user.email === 'cyc@cys.edu.hk') return;
+
+  const raw = user.rawPassword || 'cys123456';
 
   if (el.innerText === '••••••••') {
     el.innerText = raw;
@@ -311,7 +327,7 @@ window.handleCsvImport = function(event) {
               existing.role = detected.role;
               existing.roleLabel = detected.roleLabel;
             }
-            if (detected.password) existing.rawPassword = detected.password;
+            if (detected.password && !existing.isProtected) existing.rawPassword = detected.password;
           } else {
             window.g_rosterList.push({
               id: 'USR_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -377,7 +393,9 @@ window.exportRosterToCsv = function() {
   }
   let csvContent = "\uFEFF姓名,校本電郵,身分角色,登入密碼\n";
   window.g_rosterList.forEach(u => {
-    csvContent += `"${u.name}","${u.email}","${u.roleLabel || u.role}","${u.rawPassword || 'cys123456'}"\n`;
+    // 核心管理員密碼強制遮蔽，不導出真實密碼
+    const pwdOut = (u.isProtected || u.email === 'cyc@cys.edu.hk') ? "PROTECTED" : (u.rawPassword || 'cys123456');
+    csvContent += `"${u.name}","${u.email}","${u.roleLabel || u.role}","${pwdOut}"\n`;
   });
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
